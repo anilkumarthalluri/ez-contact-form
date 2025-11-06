@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import './App.css';
 
 function App() {
@@ -14,6 +13,7 @@ function App() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [responseData, setResponseData] = useState(null);
 
   // Email validation regex
   const validateEmail = (email) => {
@@ -67,6 +67,7 @@ function App() {
     e.preventDefault();
     setApiError('');
     setSubmitted(false);
+    setResponseData(null);
 
     // Validate form
     const newErrors = validateForm();
@@ -78,23 +79,34 @@ function App() {
     // Submit to API
     setLoading(true);
     try {
-      const response = await axios.post(
+      // Using fetch with proper CORS handling
+      const response = await fetch(
         'https://vernanbackend.ezlab.in/api/contact-us/',
         {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          message: formData.message
-        },
-        {
+          method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim(),
+            message: formData.message.trim()
+          }),
+          mode: 'cors',
+          credentials: 'include'
         }
       );
 
-      if (response.status === 200) {
+      const data = await response.json();
+      
+      console.log('Response status:', response.status);
+      console.log('Response data:', data);
+
+      if (response.ok || response.status === 200) {
         setSubmitted(true);
+        setResponseData(data);
         setFormData({
           name: '',
           email: '',
@@ -102,10 +114,12 @@ function App() {
           message: ''
         });
         setErrors({});
+      } else {
+        setApiError(`Server responded with status ${response.status}: ${data.detail || data.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('API Error:', error);
-      setApiError('Failed to submit form. Please try again.');
+      setApiError(`Error: ${error.message}. Please check console and try again.`);
     } finally {
       setLoading(false);
     }
@@ -118,19 +132,22 @@ function App() {
         
         {submitted && (
           <div className="success-message">
-            Form Submitted Successfully!
+            ✓ Form Submitted Successfully!
+            {responseData && <div style={{fontSize: '0.9rem', marginTop: '10px'}}>
+              Server Response: {JSON.stringify(responseData).substring(0, 100)}...
+            </div>}
           </div>
         )}
 
         {apiError && (
           <div className="error-message">
-            {apiError}
+            ✗ {apiError}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="contact-form">
           <div className="form-group">
-            <label htmlFor="name">Name</label>
+            <label htmlFor="name">Name *</label>
             <input
               type="text"
               id="name"
@@ -139,12 +156,13 @@ function App() {
               onChange={handleChange}
               placeholder="Enter your name"
               className={errors.name ? 'input-error' : ''}
+              required
             />
             {errors.name && <span className="error-text">{errors.name}</span>}
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email *</label>
             <input
               type="email"
               id="email"
@@ -153,12 +171,13 @@ function App() {
               onChange={handleChange}
               placeholder="Enter your email"
               className={errors.email ? 'input-error' : ''}
+              required
             />
             {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
           <div className="form-group">
-            <label htmlFor="phone">Phone</label>
+            <label htmlFor="phone">Phone *</label>
             <input
               type="tel"
               id="phone"
@@ -167,12 +186,13 @@ function App() {
               onChange={handleChange}
               placeholder="Enter your phone number"
               className={errors.phone ? 'input-error' : ''}
+              required
             />
             {errors.phone && <span className="error-text">{errors.phone}</span>}
           </div>
 
           <div className="form-group">
-            <label htmlFor="message">Message</label>
+            <label htmlFor="message">Message *</label>
             <textarea
               id="message"
               name="message"
@@ -181,6 +201,7 @@ function App() {
               placeholder="Enter your message"
               rows="5"
               className={errors.message ? 'input-error' : ''}
+              required
             ></textarea>
             {errors.message && <span className="error-text">{errors.message}</span>}
           </div>
@@ -193,6 +214,11 @@ function App() {
             {loading ? 'Submitting...' : 'Submit'}
           </button>
         </form>
+
+        <div style={{marginTop: '20px', fontSize: '0.85rem', color: '#666'}}>
+          <p>Debug Info: Using Fetch API with CORS mode</p>
+          <p>API: https://vernanbackend.ezlab.in/api/contact-us/</p>
+        </div>
       </div>
     </div>
   );
